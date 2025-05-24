@@ -223,6 +223,28 @@
             object-fit: contain;
         }
 
+        .test-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(76, 175, 80, 0.9);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: bold;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .test-button:hover {
+            background: rgba(76, 175, 80, 1);
+            transform: scale(1.05);
+        }
+
         @media (max-width: 768px) {
             .title {
                 font-size: 2rem;
@@ -259,6 +281,8 @@
              alt="Pump.fun" 
              class="pump-fun-logo">
     </a>
+
+    <button class="test-button" onclick="testFirebase()">Test DB</button>
 
     <div class="header">
         <h1 class="title">PepePop</h1>
@@ -552,6 +576,8 @@
             clickCount++;
             clickCountDisplay.textContent = clickCount.toLocaleString();
             
+            console.log(`Click #${clickCount} - Country: ${userCountry}`);
+            
             // Track analytics event
             if (analytics) {
                 analytics.logEvent('pepe_click', {
@@ -562,6 +588,7 @@
             
             // Update Firebase with the new click (throttled)
             if (clickCount % 5 === 0) { // Update every 5 clicks to reduce Firebase calls
+                console.log(`Reached ${clickCount} clicks - updating Firebase!`);
                 updateCountryScore(userCountry, 5);
             }
             
@@ -583,6 +610,26 @@
                 pepeImage.src = closedMouthImg;
                 isPopping = false;
             }, 150);
+        }
+
+        // Test Firebase connection
+        async function testFirebase() {
+            console.log('=== TESTING FIREBASE CONNECTION ===');
+            console.log(`Country: ${userCountry}`);
+            console.log(`Firebase Ready: ${isFirebaseReady}`);
+            
+            if (!isFirebaseReady) {
+                console.log('Firebase not ready - trying to reinitialize...');
+                await initFirebaseAuth();
+            }
+            
+            try {
+                console.log('Attempting to write test data...');
+                await updateCountryScore(userCountry, 10);
+                console.log('Test write successful!');
+            } catch (error) {
+                console.error('Test write failed:', error);
+            }
         }
 
         function toggleLeaderboard() {
