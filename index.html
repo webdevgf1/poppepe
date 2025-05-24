@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PepePop</title>
+    <link rel="icon" type="image/png" href="https://cdn.prod.website-files.com/6740d85c4e3daeef29a89470/683235c1127062351dc86729_QmQcTQFZXS8NxDmgs33EshVmANWVxKC1soXxhNp97MHLDm.png">
+    <link rel="shortcut icon" type="image/png" href="https://cdn.prod.website-files.com/6740d85c4e3daeef29a89470/683235c1127062351dc86729_QmQcTQFZXS8NxDmgs33EshVmANWVxKC1soXxhNp97MHLDm.png">
+    
+    <!-- Firebase SDK -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-analytics-compat.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Arial', sans-serif;
+            overflow-x: hidden;
+        }
+
+        .header {
+            text-align: center;
+            margin: 20px 0;
+            color: white;
+        }
+
+        .title {
+            font-size: 3rem;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+        }
+
+        .counter {
+            font-size: 1.5rem;
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 25px;
+            backdrop-filter: blur(10px);
+        }
+
+        .game-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+        }
+
+        .pepe-container {
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+
+        .pepe-container:hover {
+            transform: scale(1.05);
+        }
+
+        .pepe-container:active {
+            transform: scale(0.95);
+        }
+
+        .pepe-image {
+            width: 300px;
+            height: 300px;
+            object-fit: contain;
+            user-select: none;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3));
+        }
+
+        .click-effect {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            font-size: 2rem;
+            color: #4CAF50;
+            font-weight: bold;
+            animation: clickPop 0.6s ease-out forwards;
+        }
+
+        @keyframes clickPop {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(0.5);
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1) translateY(-50px);
+            }
+        }
+
+        .leaderboard {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 15px;
+            min-width: 200px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .leaderboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        .leaderboard-title {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.1rem;
+        }
+
+        .expand-arrow {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            color: #666;
+        }
+
+        .leaderboard.expanded .expand-arrow {
+            transform: rotate(180deg);
+        }
+
+        .leaderboard-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .leaderboard.expanded .leaderboard-content {
+            max-height: 300px;
+        }
+
+        .country-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .country-item:last-child {
+            border-bottom: none;
+        }
+
+        .country-rank {
+            font-weight: bold;
+            color: #666;
+            margin-right: 10px;
+        }
+
+        .country-name {
+            flex: 1;
+            color: #333;
+        }
+
+        .country-score {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .top-country {
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            color: white;
+            padding: 8px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .pump-fun-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50px;
+            padding: 10px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pump-fun-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+            background: rgba(255, 255, 255, 1);
+        }
+
+        .pump-fun-logo {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
+
+        @media (max-width: 768px) {
+            .title {
+                font-size: 2rem;
+            }
+            
+            .pepe-image {
+                width: 250px;
+                height: 250px;
+            }
+            
+            .leaderboard {
+                bottom: 10px;
+                right: 10px;
+                left: 10px;
+                min-width: auto;
+            }
+
+            .pump-fun-button {
+                top: 15px;
+                right: 15px;
+                padding: 8px;
+            }
+
+            .pump-fun-logo {
+                width: 35px;
+                height: 35px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="https://pump.fun" target="_blank" class="pump-fun-button">
+        <img src="https://cdn.prod.website-files.com/6740d85c4e3daeef29a89470/67e09302ce2c79cb6daaebcc_Pump_fun_logo%20(2).png" 
+             alt="Pump.fun" 
+             class="pump-fun-logo">
+    </a>
+
+    <div class="header">
+        <h1 class="title">PepePop</h1>
+        <div class="counter">
+            Clicks: <span id="clickCount">0</span>
+        </div>
+    </div>
+
+    <div class="game-container">
+        <div class="pepe-container" id="pepeContainer">
+            <img src="https://cdn.prod.website-files.com/6740d85c4e3daeef29a89470/683235c182b2956a91a2763b_a.png" 
+                 alt="Pepe" 
+                 class="pepe-image" 
+                 id="pepeImage">
+        </div>
+    </div>
+
+    <div class="leaderboard" id="leaderboard">
+        <div class="leaderboard-header" onclick="toggleLeaderboard()">
+            <div class="leaderboard-title">🏆 Global Leaderboard</div>
+            <button class="expand-arrow" id="expandArrow">▲</button>
+        </div>
+        <div class="top-country" id="topCountry">
+            🇺🇸 United States: 1,234,567
+        </div>
+        <div class="leaderboard-content" id="leaderboardContent">
+            <div class="country-item">
+                <span class="country-rank">2.</span>
+                <span class="country-name">🇯🇵 Japan</span>
+                <span class="country-score">987,654</span>
+            </div>
+            <div class="country-item">
+                <span class="country-rank">3.</span>
+                <span class="country-name">🇰🇷 South Korea</span>
+                <span class="country-score">876,543</span>
+            </div>
+            <div class="country-item">
+                <span class="country-rank">4.</span>
+                <span class="country-name">🇩🇪 Germany</span>
+                <span class="country-score">654,321</span>
+            </div>
+            <div class="country-item">
+                <span class="country-rank">5.</span>
+                <span class="country-name">🇫🇷 France</span>
+                <span class="country-score">543,210</span>
+            </div>
+            <div class="country-item">
+                <span class="country-rank">6.</span>
+                <span class="country-name">🇬🇧 United Kingdom</span>
+                <span class="country-score">432,109</span>
+            </div>
+            <div class="country-item">
+                <span class="country-rank">7.</span>
+                <span class="country-name">🇨🇦 Canada</span>
+                <span class="country-score">321,098</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration - Your actual project config
+        const firebaseConfig = {
+            apiKey: "AIzaSyDPaswfs6OpUFEGK5hZdYRTkb3Qt61JTkk",
+            authDomain: "pepe-18389.firebaseapp.com",
+            projectId: "pepe-18389",
+            storageBucket: "pepe-18389.firebasestorage.app",
+            messagingSenderId: "1047030370073",
+            appId: "1:1047030370073:web:1a61cb0620782eae0cbf88",
+            measurementId: "G-1RVZSGKHJ0"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const analytics = firebase.analytics();
+
+        let clickCount = 0;
+        let isPopping = false;
+        let userCountry = 'Unknown';
+        let leaderboardData = [];
+        
+        const pepeImage = document.getElementById('pepeImage');
+        const pepeContainer = document.getElementById('pepeContainer');
+        const clickCountDisplay = document.getElementById('clickCount');
+        
+        const closedMouthImg = 'https://cdn.prod.website-files.com/6740d85c4e3daeef29a89470/683235c182b2956a91a2763b_a.png';
+        const openMouthImg = 'https://cdn.prod.website-files.com/6740d85c4e3daeef29a89470/683235c1127062351dc86729_QmQcTQFZXS8NxDmgs33EshVmANWVxKC1soXxhNp97MHLDm.png';
+
+        // Get user's country
+        async function getUserCountry() {
+            try {
+                const response = await fetch('https://ipapi.co/json/');
+                const data = await response.json();
+                userCountry = data.country_name || 'Unknown';
+                console.log('User country:', userCountry);
+            } catch (error) {
+                console.error('Error getting country:', error);
+                userCountry = 'Unknown';
+            }
+        }
+
+        // Update country score in Firebase
+        async function updateCountryScore(country, increment = 1) {
+            try {
+                const countryRef = db.collection('countries').doc(country);
+                
+                await db.runTransaction(async (transaction) => {
+                    const doc = await transaction.get(countryRef);
+                    const currentScore = doc.exists ? (doc.data().score || 0) : 0;
+                    
+                    transaction.set(countryRef, {
+                        name: country,
+                        score: currentScore + increment,
+                        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                });
+            } catch (error) {
+                console.error('Error updating score:', error);
+            }
+        }
+
+        // Load leaderboard from Firebase
+        function loadLeaderboard() {
+            db.collection('countries')
+                .orderBy('score', 'desc')
+                .limit(10)
+                .onSnapshot((snapshot) => {
+                    leaderboardData = [];
+                    snapshot.forEach((doc) => {
+                        leaderboardData.push({
+                            name: doc.data().name,
+                            score: doc.data().score
+                        });
+                    });
+                    updateLeaderboardDisplay();
+                }, (error) => {
+                    console.error('Error loading leaderboard:', error);
+                    // Fallback to demo data if Firebase fails
+                    loadDemoData();
+                });
+        }
+
+        // Fallback demo data
+        function loadDemoData() {
+            leaderboardData = [
+                {name: 'United States', score: 1234567},
+                {name: 'Japan', score: 987654},
+                {name: 'South Korea', score: 876543},
+                {name: 'Germany', score: 654321},
+                {name: 'France', score: 543210},
+                {name: 'United Kingdom', score: 432109},
+                {name: 'Canada', score: 321098}
+            ];
+            updateLeaderboardDisplay();
+        }
+
+        // Update leaderboard display
+        function updateLeaderboardDisplay() {
+            if (leaderboardData.length === 0) return;
+
+            const countryFlags = {
+                'United States': '🇺🇸',
+                'Japan': '🇯🇵',
+                'South Korea': '🇰🇷',
+                'Germany': '🇩🇪',
+                'France': '🇫🇷',
+                'United Kingdom': '🇬🇧',
+                'Canada': '🇨🇦',
+                'Brazil': '🇧🇷',
+                'India': '🇮🇳',
+                'China': '🇨🇳',
+                'Russia': '🇷🇺',
+                'Australia': '🇦🇺',
+                'Italy': '🇮🇹',
+                'Spain': '🇪🇸',
+                'Netherlands': '🇳🇱',
+                'Unknown': '🌍'
+            };
+
+            // Update top country display
+            const topCountry = leaderboardData[0];
+            const topFlag = countryFlags[topCountry.name] || '🏁';
+            document.getElementById('topCountry').textContent = 
+                `${topFlag} ${topCountry.name}: ${topCountry.score.toLocaleString()}`;
+            
+            // Update leaderboard content
+            const content = document.getElementById('leaderboardContent');
+            content.innerHTML = '';
+            
+            for (let i = 1; i < Math.min(leaderboardData.length, 8); i++) {
+                const country = leaderboardData[i];
+                const flag = countryFlags[country.name] || '🏁';
+                
+                const item = document.createElement('div');
+                item.className = 'country-item';
+                item.innerHTML = `
+                    <span class="country-rank">${i + 1}.</span>
+                    <span class="country-name">${flag} ${country.name}</span>
+                    <span class="country-score">${country.score.toLocaleString()}</span>
+                `;
+                content.appendChild(item);
+            }
+        }
+
+        // Create audio context for pop sound
+        let audioContext;
+        
+        function createPopSound() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.1);
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        function createClickEffect(x, y) {
+            const effect = document.createElement('div');
+            effect.className = 'click-effect';
+            effect.textContent = '+1';
+            effect.style.left = x + 'px';
+            effect.style.top = y + 'px';
+            
+            pepeContainer.appendChild(effect);
+            
+            setTimeout(() => {
+                effect.remove();
+            }, 600);
+        }
+
+        function popPepe() {
+            if (isPopping) return;
+            
+            isPopping = true;
+            clickCount++;
+            clickCountDisplay.textContent = clickCount.toLocaleString();
+            
+            // Track analytics event
+            if (analytics) {
+                analytics.logEvent('pepe_click', {
+                    country: userCountry,
+                    total_clicks: clickCount
+                });
+            }
+            
+            // Update Firebase with the new click (throttled)
+            if (clickCount % 5 === 0) { // Update every 5 clicks to reduce Firebase calls
+                updateCountryScore(userCountry, 5);
+            }
+            
+            // Play pop sound
+            createPopSound();
+            
+            // Change to open mouth
+            pepeImage.src = openMouthImg;
+            
+            // Create click effect at center of image
+            const rect = pepeImage.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            createClickEffect(centerX - pepeContainer.getBoundingClientRect().left, 
+                            centerY - pepeContainer.getBoundingClientRect().top);
+            
+            // Return to closed mouth after short delay
+            setTimeout(() => {
+                pepeImage.src = closedMouthImg;
+                isPopping = false;
+            }, 150);
+        }
+
+        function toggleLeaderboard() {
+            const leaderboard = document.getElementById('leaderboard');
+            leaderboard.classList.toggle('expanded');
+        }
+
+        // Initialize the app
+        async function initApp() {
+            await getUserCountry();
+            loadLeaderboard();
+            
+            // Update any remaining clicks when page unloads
+            window.addEventListener('beforeunload', () => {
+                const remainder = clickCount % 5;
+                if (remainder > 0) {
+                    updateCountryScore(userCountry, remainder);
+                }
+            });
+        }
+
+        // Add click event listener
+        pepeContainer.addEventListener('click', popPepe);
+        
+        // Add keyboard support (spacebar)
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                popPepe();
+            }
+        });
+
+        // Initialize audio context on first user interaction
+        document.addEventListener('click', () => {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }, { once: true });
+
+        // Start the app
+        initApp();
+    </script>
+</body>
+</html>
