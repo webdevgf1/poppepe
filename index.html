@@ -410,18 +410,17 @@
         // Load leaderboard from Firebase
         function loadLeaderboard() {
             if (!isFirebaseReady) {
-                console.log('Firebase not ready, loading demo data');
-                loadDemoData();
+                console.log('Firebase not ready, showing empty leaderboard');
+                updateLeaderboardDisplay();
                 return;
             }
 
-            console.log('Setting up Firebase leaderboard listener');
+            console.log('Setting up Firebase leaderboard listener for real-time updates');
             
             db.collection('countries')
                 .orderBy('score', 'desc')
-                .limit(10)
                 .onSnapshot((snapshot) => {
-                    console.log('Received leaderboard update from Firebase');
+                    console.log('🔥 LIVE UPDATE: Received leaderboard data from Firebase');
                     leaderboardData = [];
                     
                     snapshot.forEach((doc) => {
@@ -430,55 +429,39 @@
                             name: data.name,
                             score: data.score || 0
                         });
-                        console.log(`${data.name}: ${data.score}`);
+                        console.log(`📊 ${data.name}: ${data.score?.toLocaleString()} clicks`);
                     });
                     
-                    if (leaderboardData.length === 0) {
-                        console.log('No data in Firebase, using demo data');
-                        loadDemoData();
-                    } else {
-                        updateLeaderboardDisplay();
-                    }
+                    console.log(`🌍 Total countries competing: ${leaderboardData.length}`);
+                    updateLeaderboardDisplay();
                 }, (error) => {
                     console.error('Error loading leaderboard:', error);
-                    loadDemoData();
+                    updateLeaderboardDisplay(); // Show empty leaderboard on error
                 });
         }
 
-        // Fallback demo data
-        function loadDemoData() {
-            leaderboardData = [
-                {name: 'United States', score: 1234567},
-                {name: 'Japan', score: 987654},
-                {name: 'South Korea', score: 876543},
-                {name: 'Germany', score: 654321},
-                {name: 'France', score: 543210},
-                {name: 'United Kingdom', score: 432109},
-                {name: 'Canada', score: 321098}
-            ];
-            updateLeaderboardDisplay();
+        // Fallback for empty leaderboard
+        function showEmptyLeaderboard() {
+            document.getElementById('topCountry').textContent = '🌍 No countries yet - Be the first!';
+            document.getElementById('leaderboardContent').innerHTML = 
+                '<div style="text-align: center; padding: 20px; color: #666;">Start clicking to add your country!</div>';
         }
 
         // Update leaderboard display
         function updateLeaderboardDisplay() {
-            if (leaderboardData.length === 0) return;
+            if (leaderboardData.length === 0) {
+                showEmptyLeaderboard();
+                return;
+            }
 
             const countryFlags = {
-                'United States': '🇺🇸',
-                'Japan': '🇯🇵',
-                'South Korea': '🇰🇷',
-                'Germany': '🇩🇪',
-                'France': '🇫🇷',
-                'United Kingdom': '🇬🇧',
-                'Canada': '🇨🇦',
-                'Brazil': '🇧🇷',
-                'India': '🇮🇳',
-                'China': '🇨🇳',
-                'Russia': '🇷🇺',
-                'Australia': '🇦🇺',
-                'Italy': '🇮🇹',
-                'Spain': '🇪🇸',
-                'Netherlands': '🇳🇱',
+                'United States': '🇺🇸', 'Japan': '🇯🇵', 'South Korea': '🇰🇷', 'Germany': '🇩🇪',
+                'France': '🇫🇷', 'United Kingdom': '🇬🇧', 'Canada': '🇨🇦', 'Brazil': '🇧🇷',
+                'India': '🇮🇳', 'China': '🇨🇳', 'Russia': '🇷🇺', 'Australia': '🇦🇺',
+                'Italy': '🇮🇹', 'Spain': '🇪🇸', 'Netherlands': '🇳🇱', 'Mexico': '🇲🇽',
+                'Argentina': '🇦🇷', 'Sweden': '🇸🇪', 'Norway': '🇳🇴', 'Denmark': '🇩🇰',
+                'Finland': '🇫🇮', 'Poland': '🇵🇱', 'Belgium': '🇧🇪', 'Switzerland': '🇨🇭',
+                'Austria': '🇦🇹', 'Portugal': '🇵🇹', 'Turkey': '🇹🇷', 'Greece': '🇬🇷',
                 'Unknown': '🌍'
             };
 
@@ -492,7 +475,10 @@
             const content = document.getElementById('leaderboardContent');
             content.innerHTML = '';
             
-            for (let i = 1; i < Math.min(leaderboardData.length, 8); i++) {
+            // Show top 10 countries (or all if less than 10)
+            const displayCount = Math.min(leaderboardData.length - 1, 9);
+            
+            for (let i = 1; i <= displayCount; i++) {
                 const country = leaderboardData[i];
                 const flag = countryFlags[country.name] || '🏁';
                 
@@ -503,6 +489,16 @@
                     <span class="country-name">${flag} ${country.name}</span>
                     <span class="country-score">${country.score.toLocaleString()}</span>
                 `;
+                content.appendChild(item);
+            }
+            
+            // Show message if only one country
+            if (leaderboardData.length === 1) {
+                const item = document.createElement('div');
+                item.style.textAlign = 'center';
+                item.style.padding = '15px';
+                item.style.color = '#666';
+                item.textContent = 'More countries coming soon...';
                 content.appendChild(item);
             }
         }
@@ -588,45 +584,7 @@
             }, 150);
         }
 
-        // Initialize some starter countries for a more populated leaderboard
-        async function initStarterCountries() {
-            if (!isFirebaseReady) return;
-            
-            const starterCountries = [
-                { name: 'United States', score: 1000000 },
-                { name: 'Japan', score: 750000 },
-                { name: 'South Korea', score: 500000 },
-                { name: 'Germany', score: 400000 },
-                { name: 'United Kingdom', score: 350000 },
-                { name: 'Canada', score: 300000 },
-                { name: 'Brazil', score: 250000 }
-            ];
 
-            try {
-                // Check if any data exists
-                const snapshot = await db.collection('countries').limit(1).get();
-                
-                // Only add starter data if database is completely empty
-                if (snapshot.empty) {
-                    console.log('Adding starter countries for a populated leaderboard...');
-                    
-                    const batch = db.batch();
-                    starterCountries.forEach(country => {
-                        const ref = db.collection('countries').doc(country.name);
-                        batch.set(ref, {
-                            name: country.name,
-                            score: country.score,
-                            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    });
-                    
-                    await batch.commit();
-                    console.log('Starter countries added successfully');
-                }
-            } catch (error) {
-                console.error('Error adding starter countries:', error);
-            }
-        }
 
         function toggleLeaderboard() {
             const leaderboard = document.getElementById('leaderboard');
@@ -640,19 +598,16 @@
             // Step 1: Initialize Firebase Auth
             const authSuccess = await initFirebaseAuth();
             if (!authSuccess) {
-                console.log('Firebase auth failed, using demo mode');
+                console.log('Firebase auth failed, using offline mode');
             }
             
             // Step 2: Get user country
             await getUserCountry();
             
-            // Step 3: Initialize starter countries (only if database is empty)
-            await initStarterCountries();
-            
-            // Step 4: Load leaderboard
+            // Step 3: Load leaderboard (real-time listener)
             loadLeaderboard();
             
-            // Step 5: Set up cleanup on page unload
+            // Step 4: Set up cleanup on page unload
             window.addEventListener('beforeunload', () => {
                 const remainder = clickCount % 5;
                 if (remainder > 0 && isFirebaseReady) {
@@ -660,7 +615,7 @@
                 }
             });
             
-            console.log('PepePop initialization complete');
+            console.log('PepePop initialization complete - Ready for global competition! 🌍');
         }
 
         // Add click event listener
