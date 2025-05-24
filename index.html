@@ -10,6 +10,7 @@
     <!-- Firebase SDK -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-analytics-compat.min.js"></script>
     <style>
         * {
@@ -332,12 +333,14 @@
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const auth = firebase.auth();
         const analytics = firebase.analytics();
 
         let clickCount = 0;
         let isPopping = false;
         let userCountry = 'Unknown';
         let leaderboardData = [];
+        let isFirebaseReady = false;
         
         const pepeImage = document.getElementById('pepeImage');
         const pepeContainer = document.getElementById('pepeContainer');
@@ -346,13 +349,26 @@
         const closedMouthImg = 'https://cdn.prod.website-files.com/6740d85c4e3daeef29a89470/683235c182b2956a91a2763b_a.png';
         const openMouthImg = 'https://cdn.prod.website-files.com/6740d85c4e3daeef29a89470/683235c1127062351dc86729_QmQcTQFZXS8NxDmgs33EshVmANWVxKC1soXxhNp97MHLDm.png';
 
+        // Initialize Firebase Auth
+        async function initFirebaseAuth() {
+            try {
+                await auth.signInAnonymously();
+                console.log('Firebase auth successful');
+                isFirebaseReady = true;
+                return true;
+            } catch (error) {
+                console.error('Firebase auth failed:', error);
+                return false;
+            }
+        }
+
         // Get user's country
         async function getUserCountry() {
             try {
                 const response = await fetch('https://ipapi.co/json/');
                 const data = await response.json();
                 userCountry = data.country_name || 'Unknown';
-                console.log('User country:', userCountry);
+                console.log('User country detected:', userCountry);
             } catch (error) {
                 console.error('Error getting country:', error);
                 userCountry = 'Unknown';
@@ -361,41 +377,70 @@
 
         // Update country score in Firebase
         async function updateCountryScore(country, increment = 1) {
+            if (!isFirebaseReady) {
+                console.log('Firebase not ready, skipping update');
+                return;
+            }
+
             try {
+                console.log(`Updating ${country} with +${increment} clicks`);
                 const countryRef = db.collection('countries').doc(country);
                 
                 await db.runTransaction(async (transaction) => {
                     const doc = await transaction.get(countryRef);
                     const currentScore = doc.exists ? (doc.data().score || 0) : 0;
+                    const newScore = currentScore + increment;
+                    
+                    console.log(`${country}: ${currentScore} -> ${newScore}`);
                     
                     transaction.set(countryRef, {
                         name: country,
-                        score: currentScore + increment,
+                        score: newScore,
                         lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 });
+                
+                console.log('Firebase update successful');
             } catch (error) {
                 console.error('Error updating score:', error);
+                console.error('Error details:', error.message);
             }
         }
 
         // Load leaderboard from Firebase
         function loadLeaderboard() {
+            if (!isFirebaseReady) {
+                console.log('Firebase not ready, loading demo data');
+                loadDemoData();
+                return;
+            }
+
+            console.log('Setting up Firebase leaderboard listener');
+            
             db.collection('countries')
                 .orderBy('score', 'desc')
                 .limit(10)
                 .onSnapshot((snapshot) => {
+                    console.log('Received leaderboard update from Firebase');
                     leaderboardData = [];
+                    
                     snapshot.forEach((doc) => {
+                        const data = doc.data();
                         leaderboardData.push({
-                            name: doc.data().name,
-                            score: doc.data().score
+                            name: data.name,
+                            score: data.score || 0
                         });
+                        console.log(`${data.name}: ${data.score}`);
                     });
-                    updateLeaderboardDisplay();
+                    
+                    if (leaderboardData.length === 0) {
+                        console.log('No data in Firebase, using demo data');
+                        loadDemoData();
+                    } else {
+                        updateLeaderboardDisplay();
+                    }
                 }, (error) => {
                     console.error('Error loading leaderboard:', error);
-                    // Fallback to demo data if Firebase fails
                     loadDemoData();
                 });
         }
@@ -547,16 +592,29 @@
 
         // Initialize the app
         async function initApp() {
+            console.log('Initializing PepePop...');
+            
+            // Step 1: Initialize Firebase Auth
+            const authSuccess = await initFirebaseAuth();
+            if (!authSuccess) {
+                console.log('Firebase auth failed, using demo mode');
+            }
+            
+            // Step 2: Get user country
             await getUserCountry();
+            
+            // Step 3: Load leaderboard
             loadLeaderboard();
             
-            // Update any remaining clicks when page unloads
+            // Step 4: Set up cleanup on page unload
             window.addEventListener('beforeunload', () => {
                 const remainder = clickCount % 5;
-                if (remainder > 0) {
+                if (remainder > 0 && isFirebaseReady) {
                     updateCountryScore(userCountry, remainder);
                 }
             });
+            
+            console.log('PepePop initialization complete');
         }
 
         // Add click event listener
