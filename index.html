@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POPPEPE</title>
+    <title>PepePop</title>
     <link rel="icon" type="image/png" href="https://cdn.prod.website-files.com/6740d85c4e3daeef29a89470/683235c1127062351dc86729_QmQcTQFZXS8NxDmgs33EshVmANWVxKC1soXxhNp97MHLDm.png">
     <link rel="shortcut icon" type="image/png" href="https://cdn.prod.website-files.com/6740d85c4e3daeef29a89470/683235c1127062351dc86729_QmQcTQFZXS8NxDmgs33EshVmANWVxKC1soXxhNp97MHLDm.png">
     
@@ -261,7 +261,7 @@
     </a>
 
     <div class="header">
-        <h1 class="title">POPPEPE</h1>
+        <h1 class="title">PepePop</h1>
         <div class="counter">
             Clicks: <span id="clickCount">0</span>
         </div>
@@ -282,7 +282,7 @@
             <button class="expand-arrow" id="expandArrow">▲</button>
         </div>
         <div class="top-country" id="topCountry">
-            🇺🇸 United States: 1,234,567
+            🌍 Loading...
         </div>
         <div class="leaderboard-content" id="leaderboardContent">
             <div class="country-item">
@@ -354,6 +354,12 @@
             try {
                 await auth.signInAnonymously();
                 console.log('Firebase auth successful');
+                
+                // Clear any cached data to prevent old fake data from showing
+                await db.clearPersistence().catch(() => {
+                    console.log('Cache clear not available (expected in some browsers)');
+                });
+                
                 isFirebaseReady = true;
                 return true;
             } catch (error) {
@@ -417,10 +423,14 @@
 
             console.log('Setting up Firebase leaderboard listener for real-time updates');
             
+            // Force fresh data from server, not cache
             db.collection('countries')
                 .orderBy('score', 'desc')
-                .onSnapshot((snapshot) => {
-                    console.log('🔥 LIVE UPDATE: Received leaderboard data from Firebase');
+                .onSnapshot({
+                    includeMetadataChanges: false,
+                    source: 'server' // Force server data, not cache
+                }, (snapshot) => {
+                    console.log('🔥 LIVE UPDATE: Received fresh leaderboard data from Firebase server');
                     leaderboardData = [];
                     
                     snapshot.forEach((doc) => {
@@ -594,6 +604,10 @@
         // Initialize the app
         async function initApp() {
             console.log('Initializing PepePop...');
+            
+            // Immediately clear leaderboard to prevent flash of old data
+            document.getElementById('topCountry').textContent = '🌍 Loading...';
+            document.getElementById('leaderboardContent').innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Loading global rankings...</div>';
             
             // Step 1: Initialize Firebase Auth
             const authSuccess = await initFirebaseAuth();
