@@ -223,28 +223,6 @@
             object-fit: contain;
         }
 
-        .test-button {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            z-index: 1000;
-            background: rgba(76, 175, 80, 0.9);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            padding: 10px 20px;
-            cursor: pointer;
-            font-weight: bold;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-            transition: all 0.3s ease;
-        }
-
-        .test-button:hover {
-            background: rgba(76, 175, 80, 1);
-            transform: scale(1.05);
-        }
-
         @media (max-width: 768px) {
             .title {
                 font-size: 2rem;
@@ -281,8 +259,6 @@
              alt="Pump.fun" 
              class="pump-fun-logo">
     </a>
-
-    <button class="test-button" onclick="testFirebase()">Test DB</button>
 
     <div class="header">
         <h1 class="title">PepePop</h1>
@@ -612,23 +588,43 @@
             }, 150);
         }
 
-        // Test Firebase connection
-        async function testFirebase() {
-            console.log('=== TESTING FIREBASE CONNECTION ===');
-            console.log(`Country: ${userCountry}`);
-            console.log(`Firebase Ready: ${isFirebaseReady}`);
+        // Initialize some starter countries for a more populated leaderboard
+        async function initStarterCountries() {
+            if (!isFirebaseReady) return;
             
-            if (!isFirebaseReady) {
-                console.log('Firebase not ready - trying to reinitialize...');
-                await initFirebaseAuth();
-            }
-            
+            const starterCountries = [
+                { name: 'United States', score: 1000000 },
+                { name: 'Japan', score: 750000 },
+                { name: 'South Korea', score: 500000 },
+                { name: 'Germany', score: 400000 },
+                { name: 'United Kingdom', score: 350000 },
+                { name: 'Canada', score: 300000 },
+                { name: 'Brazil', score: 250000 }
+            ];
+
             try {
-                console.log('Attempting to write test data...');
-                await updateCountryScore(userCountry, 10);
-                console.log('Test write successful!');
+                // Check if any data exists
+                const snapshot = await db.collection('countries').limit(1).get();
+                
+                // Only add starter data if database is completely empty
+                if (snapshot.empty) {
+                    console.log('Adding starter countries for a populated leaderboard...');
+                    
+                    const batch = db.batch();
+                    starterCountries.forEach(country => {
+                        const ref = db.collection('countries').doc(country.name);
+                        batch.set(ref, {
+                            name: country.name,
+                            score: country.score,
+                            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    });
+                    
+                    await batch.commit();
+                    console.log('Starter countries added successfully');
+                }
             } catch (error) {
-                console.error('Test write failed:', error);
+                console.error('Error adding starter countries:', error);
             }
         }
 
@@ -650,10 +646,13 @@
             // Step 2: Get user country
             await getUserCountry();
             
-            // Step 3: Load leaderboard
+            // Step 3: Initialize starter countries (only if database is empty)
+            await initStarterCountries();
+            
+            // Step 4: Load leaderboard
             loadLeaderboard();
             
-            // Step 4: Set up cleanup on page unload
+            // Step 5: Set up cleanup on page unload
             window.addEventListener('beforeunload', () => {
                 const remainder = clickCount % 5;
                 if (remainder > 0 && isFirebaseReady) {
