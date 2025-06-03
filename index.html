@@ -344,6 +344,7 @@
         let userCountry = 'Unknown';
         let leaderboardData = [];
         let isFirebaseReady = false;
+        let quackAudio;
         
         const pepeImage = document.getElementById('pepeImage');
         const pepeContainer = document.getElementById('pepeContainer');
@@ -351,6 +352,20 @@
         
         const closedMouthImg = 'https://cdn.prod.website-files.com/6740d85c4e3daeef29a89470/683f5787f9707f702ca0457d_200w%20(1)%20(1).png';
         const openMouthImg = 'https://cdn.prod.website-files.com/6740d85c4e3daeef29a89470/683f5787468620cdf86dc24a_200w%20(1).png';
+
+        // Initialize quack audio
+        function initQuackAudio() {
+            quackAudio = new Audio('https://raw.githubusercontent.com/webdevgf1/poppepe/main/Quack%20Sound%20Effect.mp3');
+            quackAudio.preload = 'auto';
+            quackAudio.volume = 0.5;
+        }
+
+        function playQuack() {
+            if (quackAudio) {
+                quackAudio.currentTime = 0;
+                quackAudio.play().catch(error => console.log('Audio play failed:', error));
+            }
+        }
 
         // Initialize Firebase Auth
         async function initFirebaseAuth() {
@@ -516,70 +531,6 @@
             }
         }
 
-        // Create audio context for pop sound
-        let audioContext;
-        
-        function createQuackSound() {
-    if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    
-    // Create multiple oscillators for a richer quack sound
-    const oscillator1 = audioContext.createOscillator();
-    const oscillator2 = audioContext.createOscillator();
-    const gainNode1 = audioContext.createGain();
-    const gainNode2 = audioContext.createGain();
-    const masterGain = audioContext.createGain();
-    
-    // Connect the audio nodes
-    oscillator1.connect(gainNode1);
-    oscillator2.connect(gainNode2);
-    gainNode1.connect(masterGain);
-    gainNode2.connect(masterGain);
-    masterGain.connect(audioContext.destination);
-    
-    const now = audioContext.currentTime;
-    const duration = 0.3; // Longer duration for quack
-    
-    // First oscillator - main quack frequency
-    oscillator1.frequency.setValueAtTime(400, now);
-    oscillator1.frequency.exponentialRampToValueAtTime(200, now + 0.1);
-    oscillator1.frequency.setValueAtTime(180, now + 0.1);
-    oscillator1.frequency.exponentialRampToValueAtTime(150, now + duration);
-    
-    // Second oscillator - harmonic for richness
-    oscillator2.frequency.setValueAtTime(800, now);
-    oscillator2.frequency.exponentialRampToValueAtTime(400, now + 0.1);
-    oscillator2.frequency.setValueAtTime(360, now + 0.1);
-    oscillator2.frequency.exponentialRampToValueAtTime(300, now + duration);
-    
-    // Envelope for quack-like attack and decay
-    gainNode1.gain.setValueAtTime(0, now);
-    gainNode1.gain.exponentialRampToValueAtTime(0.4, now + 0.02); // Quick attack
-    gainNode1.gain.exponentialRampToValueAtTime(0.2, now + 0.08); // Sharp decay
-    gainNode1.gain.linearRampToValueAtTime(0.1, now + 0.15);      // Sustain
-    gainNode1.gain.exponentialRampToValueAtTime(0.01, now + duration); // Release
-    
-    gainNode2.gain.setValueAtTime(0, now);
-    gainNode2.gain.exponentialRampToValueAtTime(0.2, now + 0.02);
-    gainNode2.gain.exponentialRampToValueAtTime(0.1, now + 0.08);
-    gainNode2.gain.linearRampToValueAtTime(0.05, now + 0.15);
-    gainNode2.gain.exponentialRampToValueAtTime(0.01, now + duration);
-    
-    // Master volume
-    masterGain.gain.setValueAtTime(0.6, now);
-    
-    // Use sawtooth wave for a more organic, duck-like sound
-    oscillator1.type = 'sawtooth';
-    oscillator2.type = 'triangle';
-    
-    // Start and stop the oscillators
-    oscillator1.start(now);
-    oscillator2.start(now);
-    oscillator1.stop(now + duration);
-    oscillator2.stop(now + duration);
-}
-
         function createClickEffect(x, y) {
             const effect = document.createElement('div');
             effect.className = 'click-effect';
@@ -617,8 +568,8 @@
                 updateCountryScore(userCountry, 5);
             }
             
-            // Play pop sound
-            createQuackSound();
+            // Play quack sound
+            playQuack();
             
             // Change to open mouth
             pepeImage.src = openMouthImg;
@@ -636,8 +587,6 @@
                 isPopping = false;
             }, 150);
         }
-
-
 
         function toggleLeaderboard() {
             const leaderboard = document.getElementById('leaderboard');
@@ -661,10 +610,13 @@
             // Step 2: Get user country
             await getUserCountry();
             
-            // Step 3: Load leaderboard (real-time listener)
+            // Step 3: Initialize quack audio
+            initQuackAudio();
+            
+            // Step 4: Load leaderboard (real-time listener)
             loadLeaderboard();
             
-            // Step 4: Set up cleanup on page unload
+            // Step 5: Set up cleanup on page unload
             window.addEventListener('beforeunload', () => {
                 const remainder = clickCount % 5;
                 if (remainder > 0 && isFirebaseReady) {
@@ -685,13 +637,6 @@
                 popPepe();
             }
         });
-
-        // Initialize audio context on first user interaction
-        document.addEventListener('click', () => {
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-        }, { once: true });
 
         // Start the app
         initApp();
