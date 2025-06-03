@@ -519,26 +519,66 @@
         // Create audio context for pop sound
         let audioContext;
         
-        function createPopSound() {
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            
-            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-            oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.1);
-            
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-            
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.1);
-        }
+        function createQuackSound() {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    // Create multiple oscillators for a richer quack sound
+    const oscillator1 = audioContext.createOscillator();
+    const oscillator2 = audioContext.createOscillator();
+    const gainNode1 = audioContext.createGain();
+    const gainNode2 = audioContext.createGain();
+    const masterGain = audioContext.createGain();
+    
+    // Connect the audio nodes
+    oscillator1.connect(gainNode1);
+    oscillator2.connect(gainNode2);
+    gainNode1.connect(masterGain);
+    gainNode2.connect(masterGain);
+    masterGain.connect(audioContext.destination);
+    
+    const now = audioContext.currentTime;
+    const duration = 0.3; // Longer duration for quack
+    
+    // First oscillator - main quack frequency
+    oscillator1.frequency.setValueAtTime(400, now);
+    oscillator1.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+    oscillator1.frequency.setValueAtTime(180, now + 0.1);
+    oscillator1.frequency.exponentialRampToValueAtTime(150, now + duration);
+    
+    // Second oscillator - harmonic for richness
+    oscillator2.frequency.setValueAtTime(800, now);
+    oscillator2.frequency.exponentialRampToValueAtTime(400, now + 0.1);
+    oscillator2.frequency.setValueAtTime(360, now + 0.1);
+    oscillator2.frequency.exponentialRampToValueAtTime(300, now + duration);
+    
+    // Envelope for quack-like attack and decay
+    gainNode1.gain.setValueAtTime(0, now);
+    gainNode1.gain.exponentialRampToValueAtTime(0.4, now + 0.02); // Quick attack
+    gainNode1.gain.exponentialRampToValueAtTime(0.2, now + 0.08); // Sharp decay
+    gainNode1.gain.linearRampToValueAtTime(0.1, now + 0.15);      // Sustain
+    gainNode1.gain.exponentialRampToValueAtTime(0.01, now + duration); // Release
+    
+    gainNode2.gain.setValueAtTime(0, now);
+    gainNode2.gain.exponentialRampToValueAtTime(0.2, now + 0.02);
+    gainNode2.gain.exponentialRampToValueAtTime(0.1, now + 0.08);
+    gainNode2.gain.linearRampToValueAtTime(0.05, now + 0.15);
+    gainNode2.gain.exponentialRampToValueAtTime(0.01, now + duration);
+    
+    // Master volume
+    masterGain.gain.setValueAtTime(0.6, now);
+    
+    // Use sawtooth wave for a more organic, duck-like sound
+    oscillator1.type = 'sawtooth';
+    oscillator2.type = 'triangle';
+    
+    // Start and stop the oscillators
+    oscillator1.start(now);
+    oscillator2.start(now);
+    oscillator1.stop(now + duration);
+    oscillator2.stop(now + duration);
+}
 
         function createClickEffect(x, y) {
             const effect = document.createElement('div');
@@ -578,7 +618,7 @@
             }
             
             // Play pop sound
-            createPopSound();
+            createQuackSound();
             
             // Change to open mouth
             pepeImage.src = openMouthImg;
